@@ -3,7 +3,7 @@ import numpy as np
 from beamforming.core import CoordinateSystem
 
 
-class Array:
+class ArrayGeometry:
     def __init__(
         self,
         coordinates,
