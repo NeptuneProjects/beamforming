@@ -1,13 +1,13 @@
 import numpy as np
 
-from beamforming.core import CoordinateSystem
+import beamforming.coordinates as coord
 
 
 class ArrayGeometry:
     def __init__(
         self,
         coordinates,
-        coordinate_system=CoordinateSystem.CARTESIAN,
+        coordinate_system=coord.CoordinateSystem.CARTESIAN,
         fs=None,
         sound_speed=1500.0,
     ):
@@ -17,7 +17,7 @@ class ArrayGeometry:
         coordinates : ndarray
             Shape (n_sensors, 2) or (n_sensors, 3) depending on dimensions
             Coordinates in the specified system
-        coordinate_system : CoordinateSystem
+        coordinate_system : coord.CoordinateSystem
             Specifies the format of input coordinates
         fs : float, optional
             Sampling frequency in Hz
@@ -30,7 +30,7 @@ class ArrayGeometry:
         # Convert input coordinates to Cartesian 3D (our internal standard)
         self.coordinates_original = np.asarray(coordinates)
         self.original_coordinate_system = coordinate_system
-        self.sensor_positions = self._to_cartesian_3d(
+        self.sensor_positions = coord.to_cartesian_3d(
             self.coordinates_original, coordinate_system
         )
 
@@ -135,7 +135,7 @@ class ArrayGeometry:
 
         return cls(
             positions,
-            coordinate_system=CoordinateSystem.CARTESIAN,
+            coordinate_system=coord.CoordinateSystem.CARTESIAN,
             fs=fs,
             sound_speed=sound_speed,
         )
@@ -177,7 +177,7 @@ class ArrayGeometry:
 
         return cls(
             positions,
-            coordinate_system=CoordinateSystem.CARTESIAN,
+            coordinate_system=coord.CoordinateSystem.CARTESIAN,
             fs=fs,
             sound_speed=sound_speed,
         )
@@ -235,7 +235,7 @@ class ArrayGeometry:
     def delays(self, direction, coordinate_system, reference_point="center"):
         """
         Calculate time delays for given direction
-        
+
         Parameters:
         -----------
         direction : ndarray or tuple
@@ -246,12 +246,12 @@ class ArrayGeometry:
             - Spherical: [azimuth, elevation] in radians
         reference_point : str or ndarray
             Reference point for delay calculation ('center', 'first', or coordinates)
-        coordinate_system : CoordinateSystem, optional
+        coordinate_system : coord.CoordinateSystem, optional
             System of the provided direction. If None, inferred from input format:
             - Length 1: Assumed Polar (azimuth only)
             - Length 2: Assumed Spherical (azimuth, elevation)
             - Length 3: Assumed Cartesian (x, y, z)
-            
+
         Returns:
         --------
         delays : ndarray
@@ -259,43 +259,49 @@ class ArrayGeometry:
         """
         # Convert direction to ndarray
         direction = np.asarray(direction).flatten()
-                
+
         # Convert to unit vector in Cartesian coordinates
-        if coordinate_system == CoordinateSystem.CARTESIAN:
+        if coordinate_system == coord.CoordinateSystem.CARTESIAN:
             # Direction is already in Cartesian form, just normalize
             direction_vector = direction / np.linalg.norm(direction)
             if len(direction_vector) == 2:
                 # Convert 2D to 3D
                 direction_vector = np.append(direction_vector, 0)
-                
-        elif coordinate_system == CoordinateSystem.POLAR:
+
+        elif coordinate_system == coord.CoordinateSystem.POLAR:
             # Direction is just azimuth angle
             azimuth = direction[0]
-            direction_vector = np.array([
-                np.cos(azimuth),
-                np.sin(azimuth),
-                0  # No elevation in polar coordinates
-            ])
-            
-        elif coordinate_system == CoordinateSystem.CYLINDRICAL:
+            direction_vector = np.array(
+                [
+                    np.cos(azimuth),
+                    np.sin(azimuth),
+                    0,  # No elevation in polar coordinates
+                ]
+            )
+
+        elif coordinate_system == coord.CoordinateSystem.CYLINDRICAL:
             # Direction is [r, azimuth, z], but we only care about azimuth
             azimuth = direction[1] if len(direction) > 1 else direction[0]
-            direction_vector = np.array([
-                np.cos(azimuth),
-                np.sin(azimuth),
-                0  # Ignore z-component for direction
-            ])
-            
-        elif coordinate_system == CoordinateSystem.SPHERICAL:
+            direction_vector = np.array(
+                [
+                    np.cos(azimuth),
+                    np.sin(azimuth),
+                    0,  # Ignore z-component for direction
+                ]
+            )
+
+        elif coordinate_system == coord.CoordinateSystem.SPHERICAL:
             # Direction is [azimuth, elevation]
             azimuth = direction[0]
             elevation = direction[1] if len(direction) > 1 else 0.0
-            direction_vector = np.array([
-                np.cos(elevation) * np.cos(azimuth),
-                np.cos(elevation) * np.sin(azimuth),
-                np.sin(elevation)
-            ])
-        
+            direction_vector = np.array(
+                [
+                    np.cos(elevation) * np.cos(azimuth),
+                    np.cos(elevation) * np.sin(azimuth),
+                    np.sin(elevation),
+                ]
+            )
+
         # Determine reference point
         if reference_point == "center":
             ref_pos = self.center
@@ -306,14 +312,16 @@ class ArrayGeometry:
             if len(ref_pos) == 2:
                 # Convert 2D to 3D reference point
                 ref_pos = np.append(ref_pos, 0)
-        
+
         # Calculate projection of sensor positions onto direction vector
         relative_positions = self.sensor_positions - ref_pos
         projections = np.dot(relative_positions, direction_vector)
-        
+
         # Convert to time delays
-        delays = -projections / self.sound_speed  # Negative because delay is in the opposite direction of arrival
-        
+        delays = (
+            -projections / self.sound_speed
+        )  # Negative because delay is in the opposite direction of arrival
+
         return delays
 
     def get_coordinates(self, coordinate_system=None):
@@ -322,7 +330,7 @@ class ArrayGeometry:
 
         Parameters:
         -----------
-        coordinate_system : CoordinateSystem, optional
+        coordinate_system : coord.CoordinateSystem, optional
             Desired coordinate system. If None, returns the original coordinates.
 
         Returns:
@@ -337,13 +345,13 @@ class ArrayGeometry:
         cart = self.sensor_positions
         result = None
 
-        if coordinate_system == CoordinateSystem.CARTESIAN:
+        if coordinate_system == coord.CoordinateSystem.CARTESIAN:
             if self.dimensions == 2:
                 result = cart[:, :2]  # Return just x, y for 2D
             else:
                 result = cart  # Return x, y, z for 3D
 
-        elif coordinate_system == CoordinateSystem.POLAR:
+        elif coordinate_system == coord.CoordinateSystem.POLAR:
             if self.dimensions == 3:
                 print(
                     "Warning: Converting 3D array to 2D polar coordinates (ignoring z)"
@@ -354,14 +362,14 @@ class ArrayGeometry:
             result[:, 0] = np.sqrt(x**2 + y**2)  # r
             result[:, 1] = np.arctan2(y, x)  # θ
 
-        elif coordinate_system == CoordinateSystem.CYLINDRICAL:
+        elif coordinate_system == coord.CoordinateSystem.CYLINDRICAL:
             result = np.zeros((self.n_sensors, 3))
             x, y, z = cart[:, 0], cart[:, 1], cart[:, 2]
             result[:, 0] = np.sqrt(x**2 + y**2)  # r
             result[:, 1] = np.arctan2(y, x)  # θ
             result[:, 2] = z  # z
 
-        elif coordinate_system == CoordinateSystem.SPHERICAL:
+        elif coordinate_system == coord.CoordinateSystem.SPHERICAL:
             result = np.zeros((self.n_sensors, 3))
             x, y, z = cart[:, 0], cart[:, 1], cart[:, 2]
 
@@ -392,7 +400,7 @@ class ArrayGeometry:
 
         Parameters:
         -----------
-        coordinate_system : CoordinateSystem, optional
+        coordinate_system : coord.CoordinateSystem, optional
             System to plot in (defaults to Cartesian)
         ax : matplotlib.axes.Axes, optional
             Axes to plot on, if None a new figure is created
@@ -409,7 +417,7 @@ class ArrayGeometry:
         from beamforming.plotting import plot_array_geometry
 
         if coordinate_system is None:
-            coordinate_system = CoordinateSystem.CARTESIAN
+            coordinate_system = coord.CoordinateSystem.CARTESIAN
 
         # Get coordinates in the requested system
         coords = self.get_coordinates(coordinate_system)
@@ -468,7 +476,7 @@ class ArrayGeometry:
         if degrees:
             angle = np.radians(angle)
 
-        rot_matrix = self._rotation_matrix_axis_angle(axis, angle)
+        rot_matrix = coord.rotation_matrix_axis_angle(axis, angle)
         return self.rotate(rot_matrix)
 
     def rotate_azimuth(self, azimuth, degrees=False):
@@ -477,7 +485,7 @@ class ArrayGeometry:
         """
         if degrees:
             azimuth = np.radians(azimuth)
-        return self.rotate(self._rotation_matrix_z(azimuth))
+        return self.rotate(coord.rotation_matrix_z(azimuth))
 
     def rotate_azimuth_elevation(self, azimuth, elevation, degrees=False):
         """
@@ -494,7 +502,7 @@ class ArrayGeometry:
         """
         if degrees:
             elevation = np.radians(elevation)
-        return self.rotate(self._rotation_matrix_y(elevation))
+        return self.rotate(self.rotation_matrix_y(elevation))
 
     def rotate_euler(self, angles, sequence="zyx", degrees=False):
         """
@@ -516,98 +524,17 @@ class ArrayGeometry:
         for i, axis in enumerate(sequence):
             angle = angles[i]
             if axis.lower() == "x":
-                rot_i = self._rotation_matrix_x(angle)
+                rot_i = coord.rotation_matrix_x(angle)
             elif axis.lower() == "y":
-                rot_i = self._rotation_matrix_y(angle)
+                rot_i = coord.rotation_matrix_y(angle)
             elif axis.lower() == "z":
-                rot_i = self._rotation_matrix_z(angle)
+                rot_i = coord.rotation_matrix_z(angle)
             else:
                 raise ValueError(f"Invalid axis: {axis}")
 
             rot_matrix = np.dot(rot_i, rot_matrix)
 
         return self.rotate(rot_matrix)
-
-    def _rotation_matrix_axis_angle(self, axis, angle):
-        """
-        Create rotation matrix from axis and angle using Rodrigues' rotation formula
-        """
-        axis = np.asarray(axis)
-        axis = axis / np.linalg.norm(axis)  # Normalize
-
-        x, y, z = axis
-        c, s = np.cos(angle), np.sin(angle)
-        C = 1 - c
-
-        return np.array(
-            [
-                [x * x * C + c, x * y * C - z * s, x * z * C + y * s],
-                [y * x * C + z * s, y * y * C + c, y * z * C - x * s],
-                [z * x * C - y * s, z * y * C + x * s, z * z * C + c],
-            ]
-        )
-
-    def _rotation_matrix_x(self, angle):
-        """Create rotation matrix for rotation around x-axis"""
-        c, s = np.cos(angle), np.sin(angle)
-        return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
-
-    def _rotation_matrix_y(self, angle):
-        """Create rotation matrix for rotation around y-axis"""
-        c, s = np.cos(angle), np.sin(angle)
-        return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
-
-    def _rotation_matrix_z(self, angle):
-        """Create rotation matrix for rotation around z-axis"""
-        c, s = np.cos(angle), np.sin(angle)
-        return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
-
-    def _to_cartesian_3d(self, coordinates, system):
-        """Convert coordinates to 3D Cartesian"""
-        coords = np.asarray(coordinates)
-        result = np.zeros((coords.shape[0], 3))
-
-        if system == CoordinateSystem.CARTESIAN:
-            if coords.shape[1] == 2:
-                # 2D Cartesian to 3D Cartesian
-                result[:, 0] = coords[:, 0]  # x
-                result[:, 1] = coords[:, 1]  # y
-                # z = 0 by default
-            else:
-                # Already 3D Cartesian
-                result = coords
-
-        elif system == CoordinateSystem.POLAR:
-            # Polar (r, θ) to 3D Cartesian
-            r = coords[:, 0]
-            theta = coords[:, 1]
-            result[:, 0] = r * np.cos(theta)  # x
-            result[:, 1] = r * np.sin(theta)  # y
-            # z = 0 by default
-
-        elif system == CoordinateSystem.CYLINDRICAL:
-            # Cylindrical (r, θ, z) to 3D Cartesian
-            r = coords[:, 0]
-            theta = coords[:, 1]
-            result[:, 0] = r * np.cos(theta)  # x
-            result[:, 1] = r * np.sin(theta)  # y
-            if coords.shape[1] > 2:  # Check if z is provided
-                result[:, 2] = coords[:, 2]  # z
-
-        elif system == CoordinateSystem.SPHERICAL:
-            # Spherical (r, θ, φ) to 3D Cartesian
-            r = coords[:, 0]
-            theta = coords[:, 1]  # azimuth
-            if coords.shape[1] > 2:
-                phi = coords[:, 2]  # elevation
-            else:
-                phi = np.zeros_like(r)
-
-            result[:, 0] = r * np.cos(theta) * np.cos(phi)  # x
-            result[:, 1] = r * np.sin(theta) * np.cos(phi)  # y
-            result[:, 2] = r * np.sin(phi)  # z
-
-        return result
 
     def translate(self, vector):
         """
