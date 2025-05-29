@@ -1,4 +1,8 @@
+from collections.abc import Sequence
+
+from matplotlib.pyplot import Axes
 import numpy as np
+import numpy.typing as npt
 
 import beamforming.coordinates as coord
 
@@ -6,11 +10,11 @@ import beamforming.coordinates as coord
 class ArrayGeometry:
     def __init__(
         self,
-        coordinates,
-        coordinate_system=coord.CoordinateSystem.CARTESIAN,
-        fs=None,
-        sound_speed=1500.0,
-    ):
+        coordinates: Sequence[float],
+        coordinate_system: coord.CoordinateSystem = coord.CoordinateSystem.CARTESIAN,
+        fs: float | None = None,
+        sound_speed: float = 1500.0,
+    ) -> None:
         """
         Parameters:
         -----------
@@ -39,23 +43,23 @@ class ArrayGeometry:
         self.translation_vector = np.zeros(3)  # No translation
 
     @property
-    def center(self):
+    def center(self) -> npt.NDArray[np.float64]:
         """Centroid of the array in Cartesian coordinates"""
         return np.mean(self.sensor_positions, axis=0)
 
     @property
-    def dimensions(self):
+    def dimensions(self) -> int:
         """Returns 2 if all z-coordinates are 0, otherwise 3"""
         if np.allclose(self.sensor_positions[:, 2], 0):
             return 2
         return 3
 
     @property
-    def n_sensors(self):
+    def n_sensors(self) -> int:
         """Number of sensors in the array"""
         return self.sensor_positions.shape[0]
 
-    def apply_transformation(self, matrix):
+    def apply_transformation(self, matrix: npt.NDArray[np.float64]) -> "ArrayGeometry":
         """
         Apply a 4x4 homogeneous transformation matrix
 
@@ -90,8 +94,14 @@ class ArrayGeometry:
 
     @classmethod
     def create_circular_array(
-        cls, n_sensors, radius, plane="xy", center=None, fs=None, sound_speed=1500.0
-    ):
+        cls,
+        n_sensors: int,
+        radius: float,
+        plane: str = "xy",
+        center: Sequence[float] | None = None,
+        fs: float | None = None,
+        sound_speed: float = 1500.0,
+    ) -> "ArrayGeometry":
         """
         Create a uniform circular array
 
@@ -142,7 +152,13 @@ class ArrayGeometry:
 
     @classmethod
     def create_linear_array(
-        cls, n_sensors, spacing, axis="x", center=True, fs=None, sound_speed=1500.0
+        cls,
+        n_sensors: int,
+        spacing: float,
+        axis: str = "x",
+        center: bool = True,
+        fs: float | None = None,
+        sound_speed: float = 1500.0,
     ):
         """
         Create a uniform linear array
@@ -232,7 +248,12 @@ class ArrayGeometry:
     #     """
     #     # Implementation here
 
-    def delays(self, direction, coordinate_system, reference_point="center"):
+    def delays(
+        self,
+        direction: Sequence[float],
+        coordinate_system: coord.CoordinateSystem,
+        reference_point: str = "center",
+    ) -> npt.NDArray[np.float64]:
         """
         Calculate time delays for given direction
 
@@ -324,7 +345,9 @@ class ArrayGeometry:
 
         return delays
 
-    def get_coordinates(self, coordinate_system=None):
+    def get_coordinates(
+        self, coordinate_system: coord.CoordinateSystem | None = None
+    ) -> npt.NDArray[np.float64]:
         """
         Get sensor coordinates in the specified coordinate system
 
@@ -380,7 +403,7 @@ class ArrayGeometry:
 
         return result
 
-    def get_transformation_matrix(self):
+    def get_transformation_matrix(self) -> npt.NDArray[np.float64]:
         """
         Get the 4x4 homogeneous transformation matrix representing all transformations
 
@@ -394,7 +417,13 @@ class ArrayGeometry:
         matrix[:3, 3] = self.translation_vector
         return matrix
 
-    def plot(self, coordinate_system=None, ax=None, show=None, **kwargs):
+    def plot(
+        self,
+        coordinate_system: coord.CoordinateSystem | None = None,
+        ax: Axes | None = None,
+        show: bool = True,
+        **kwargs
+    ) -> Axes:
         """
         Plot the array geometry
 
@@ -433,7 +462,7 @@ class ArrayGeometry:
             **kwargs
         )
 
-    def reset_transform(self):
+    def reset_transform(self) -> "ArrayGeometry":
         """
         Reset all transformations (rotation and translation)
 
@@ -453,7 +482,7 @@ class ArrayGeometry:
 
         return self
 
-    def rotate(self, rotation_matrix):
+    def rotate(self, rotation_matrix: npt.NDArray[np.float64]) -> "ArrayGeometry":
         """
         Rotate array using a 3x3 rotation matrix
         """
@@ -469,7 +498,9 @@ class ArrayGeometry:
 
         return self
 
-    def rotate_axis_angle(self, axis, angle, degrees=False):
+    def rotate_axis_angle(
+        self, axis, angle: float, degrees: bool = False
+    ) -> "ArrayGeometry":
         """
         Rotate array around an axis by an angle
         """
@@ -479,7 +510,7 @@ class ArrayGeometry:
         rot_matrix = coord.rotation_matrix_axis_angle(axis, angle)
         return self.rotate(rot_matrix)
 
-    def rotate_azimuth(self, azimuth, degrees=False):
+    def rotate_azimuth(self, azimuth: float, degrees: bool = False) -> "ArrayGeometry":
         """
         Rotate array in azimuth (around z-axis)
         """
@@ -487,7 +518,9 @@ class ArrayGeometry:
             azimuth = np.radians(azimuth)
         return self.rotate(coord.rotation_matrix_z(azimuth))
 
-    def rotate_azimuth_elevation(self, azimuth, elevation, degrees=False):
+    def rotate_azimuth_elevation(
+        self, azimuth: float, elevation: float, degrees: bool = False
+    ) -> "ArrayGeometry":
         """
         Rotate array in both azimuth and elevation
         """
@@ -496,7 +529,9 @@ class ArrayGeometry:
             azimuth, degrees
         )
 
-    def rotate_elevation(self, elevation, degrees=False):
+    def rotate_elevation(
+        self, elevation: float, degrees: bool = False
+    ) -> "ArrayGeometry":
         """
         Rotate array in elevation (around y-axis)
         """
@@ -504,7 +539,9 @@ class ArrayGeometry:
             elevation = np.radians(elevation)
         return self.rotate(self.rotation_matrix_y(elevation))
 
-    def rotate_euler(self, angles, sequence="zyx", degrees=False):
+    def rotate_euler(
+        self, angles: Sequence[float], sequence: str = "zyx", degrees: bool = False
+    ) -> "ArrayGeometry":
         """
         Rotate array using Euler angles
 
@@ -536,7 +573,12 @@ class ArrayGeometry:
 
         return self.rotate(rot_matrix)
 
-    def steering_vector(self, frequency, direction, coordinate_system):
+    def steering_vector(
+        self,
+        frequency: float,
+        direction: Sequence[float],
+        coordinate_system: coord.CoordinateSystem,
+    ) -> npt.NDArray[np.complex128]:
         if frequency == 0:
             return np.ones(self.n_sensors)
 
@@ -544,8 +586,7 @@ class ArrayGeometry:
         phase_shifts = np.exp(-1j * 2 * np.pi * frequency * delays)
         return phase_shifts
 
-
-    def translate(self, vector):
+    def translate(self, vector: Sequence[float]) -> "ArrayGeometry":
         """
         Translate array by a vector
 
