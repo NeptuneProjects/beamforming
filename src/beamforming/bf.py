@@ -11,7 +11,10 @@ from beamforming.coordinates import CoordinateSystem
 
 class BeamformerBase(ABC):
 
-    def __init__(self, array_geometry: ArrayGeometry) -> None:
+    def __init__(
+        self,
+        array_geometry: ArrayGeometry,
+    ) -> None:
         self.array_geometry = array_geometry
 
     @abstractmethod
@@ -24,19 +27,35 @@ class BeamformerBase(ABC):
     ):
         pass
 
+    def _initialize_stft(
+        self,
+        sampling_rate: float,
+        window_type: str = "hann",
+        window_size: int = 1024,
+        hop: int = 512,
+        nfft: int | None = None,
+    ) -> None:
+        window = get_window(window_type, window_size)
+        self.STFT = ShortTimeFFT(window, hop, sampling_rate, mfft=nfft)
+
     def process(
         self,
         data: npt.NDArray,
-        sampling_rate: float,
         direction: Sequence[float],
+        sampling_rate: float,
         window_type: str = "hann",
         window_size: int = 1024,
         hop_size: int = 512,
         nfft: int = None,
         **kwargs
     ) -> npt.NDArray[np.float64]:
-        window = get_window(window_type, window_size)
-        self.STFT = ShortTimeFFT(window, hop_size, sampling_rate, mfft=nfft)
+        self._initialize_stft(
+            sampling_rate,
+            window_type=window_type,
+            window_size=window_size,
+            hop=hop_size,
+            nfft=nfft,
+        )
 
         stft_data = self.STFT.stft(data)
         beamformed_stft_data = self.process_frequency_domain(
@@ -90,8 +109,6 @@ class BeamformerBase(ABC):
             weights = self.get_weights(
                 freq, steering_direction, coordinate_system, **kwargs
             )
-            print(freq)
-            print(weights)
 
             for d_idx, direction in enumerate(directions):
                 steering_vector = self.array_geometry.steering_vector(
@@ -149,20 +166,30 @@ class MVDRBeamformer(BeamformerBase):
         self.diagonal_loading = diagonal_loading
         self.covariance_matrices = {}  # Frequency-dependent covariance matrices
 
-    def train(self, data: npt.NDArray[np.float64], sampling_rate: float, **kwargs):
+    def train(
+        self,
+        data: npt.NDArray[np.float64],
+        sampling_rate: float,
+        window_type: str = "hann",
+        window_size: int = 1024,
+        hop_size: int = 512,
+        nfft: int = None,
+    ):
         """
         Estimate spatial covariance matrices from signals
         """
         # TODO: Refactor into a separate covariance module
-        # TODO: Refactor STFT into __init__ of base class.
-        stft_data = self._compute_stft(data, sampling_rate, **kwargs)
-
-        # Extract STFT data
-        stft = stft_data
+        self._initialize_stft(
+            sampling_rate,
+            window_type=window_type,
+            window_size=window_size,
+            hop=hop_size,
+            nfft=nfft,
+        )
+        stft_data = self.STFT.stft(data)
         frequencies = self.STFT.f
-        # frequencies = stft_data["frequencies"]
 
-        n_bins, n_frames, n_channels = stft.shape
+        n_channels, _, n_frames = stft_data.shape
 
         # Estimate covariance matrices for each frequency
         for f_idx, freq in enumerate(frequencies):
@@ -170,12 +197,11 @@ class MVDRBeamformer(BeamformerBase):
                 continue
 
             # Get all frames for this frequency
-            X = stft[f_idx]  # shape: (n_frames, n_channels)
-
+            X = stft_data[:, f_idx, ...]  # shape: (n_frames, n_channels)
             # Estimate covariance matrix
             R = np.zeros((n_channels, n_channels), dtype=complex)
             for frame in range(n_frames):
-                x = X[frame].reshape(-1, 1)  # Make column vector
+                x = X[:, frame].reshape(-1, 1)  # Make column vector
                 R += x @ np.conjugate(x).T
 
             R /= n_frames
