@@ -63,16 +63,6 @@ class BeamformerBase(ABC):
         )
         return self.STFT.istft(beamformed_stft_data, k1=data.shape[-1])
 
-    # @abstractmethod
-    # def process_frequency_domain(
-    #     self,
-    #     stft_data: npt.NDArray[np.complex128],
-    #     direction: Sequence[float],
-    #     coordinate_system: CoordinateSystem,
-    #     **kwargs
-    # ):
-    #     pass
-
     def process_frequency_domain(
         self,
         stft_data: npt.NDArray[np.complex128],
@@ -249,31 +239,3 @@ class MVDRBeamformer(BeamformerBase):
         w = R_inv_d / d_H_R_inv_d
 
         return w
-
-    # def process_frequency_domain(
-    #     self, stft_data, direction, coordinate_system, **kwargs
-    # ):
-    #     """
-    #     Apply MVDR beamforming in frequency domain
-    #     """
-    #     # Extract STFT data
-    #     stft = stft_data["stft"]
-    #     frequencies = stft_data["frequencies"]
-    #     times = stft_data["times"]
-
-    #     n_bins, n_frames, n_channels = stft.shape
-
-    #     # Initialize output
-    #     output_stft = np.zeros((n_bins, n_frames), dtype=complex)
-
-    #     # Process each frequency bin
-    #     for f_idx, freq in enumerate(frequencies):
-    #         # Get weights for this frequency
-    #         weights = self.get_weights(freq, direction, coordinate_system, **kwargs)
-
-    #         # Apply weights and sum
-    #         for frame in range(n_frames):
-    #             output_stft[f_idx, frame] = np.sum(weights * stft[f_idx, frame])
-
-    #     # Return in same format
-    #     return output_stft
