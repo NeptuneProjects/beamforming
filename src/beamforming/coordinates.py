@@ -1,6 +1,8 @@
+from collections.abc import Sequence
 from enum import StrEnum
 
 import numpy as np
+import numpy.typing as npt
 
 
 class CoordinateSystem(StrEnum):
@@ -10,7 +12,9 @@ class CoordinateSystem(StrEnum):
     SPHERICAL = "spherical"  # (r, θ, φ) where θ is azimuth and φ is elevation
 
 
-def rotation_matrix_axis_angle(axis, angle):
+def rotation_matrix_axis_angle(
+    axis: Sequence[float], angle: float
+) -> npt.NDArray[np.float64]:
     """
     Create rotation matrix from axis and angle using Rodrigues' rotation formula
     """
@@ -30,25 +34,27 @@ def rotation_matrix_axis_angle(axis, angle):
     )
 
 
-def rotation_matrix_x(angle):
+def rotation_matrix_x(angle: float) -> npt.NDArray[np.float64]:
     """Create rotation matrix for rotation around x-axis"""
     c, s = np.cos(angle), np.sin(angle)
     return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
 
 
-def rotation_matrix_y(angle):
+def rotation_matrix_y(angle: float) -> npt.NDArray[np.float64]:
     """Create rotation matrix for rotation around y-axis"""
     c, s = np.cos(angle), np.sin(angle)
     return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
 
 
-def rotation_matrix_z(angle):
+def rotation_matrix_z(angle: float) -> npt.NDArray[np.float64]:
     """Create rotation matrix for rotation around z-axis"""
     c, s = np.cos(angle), np.sin(angle)
     return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
 
 
-def to_cartesian_3d(coordinates, system):
+def to_cartesian_3d(
+    coordinates: Sequence[float], system: CoordinateSystem
+) -> npt.NDArray[np.float64]:
     """Convert coordinates to 3D Cartesian"""
     coords = np.asarray(coordinates)
     result = np.zeros((coords.shape[0], 3))
