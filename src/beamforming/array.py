@@ -89,7 +89,9 @@ class ArrayGeometry:
         return self
 
     @classmethod
-    def create_circular_array(cls, n_sensors, radius, plane="xy", center=None, fs=None):
+    def create_circular_array(
+        cls, n_sensors, radius, plane="xy", center=None, fs=None, sound_speed=1500.0
+    ):
         """
         Create a uniform circular array
 
@@ -131,10 +133,17 @@ class ArrayGeometry:
 
         positions += center
 
-        return cls(positions, coordinate_system=CoordinateSystem.CARTESIAN, fs=fs)
+        return cls(
+            positions,
+            coordinate_system=CoordinateSystem.CARTESIAN,
+            fs=fs,
+            sound_speed=sound_speed,
+        )
 
     @classmethod
-    def create_linear_array(cls, n_sensors, spacing, axis="x", center=True, fs=None):
+    def create_linear_array(
+        cls, n_sensors, spacing, axis="x", center=True, fs=None, sound_speed=1500.0
+    ):
         """
         Create a uniform linear array
 
@@ -166,7 +175,12 @@ class ArrayGeometry:
 
         positions[:, idx] = np.arange(n_sensors) * spacing + start
 
-        return cls(positions, coordinate_system=CoordinateSystem.CARTESIAN, fs=fs)
+        return cls(
+            positions,
+            coordinate_system=CoordinateSystem.CARTESIAN,
+            fs=fs,
+            sound_speed=sound_speed,
+        )
 
     # @classmethod
     # def create_planar_array(cls, grid_shape, spacing, plane="xy", center=True, fs=None):
@@ -343,7 +357,7 @@ class ArrayGeometry:
     def plot(self, coordinate_system=None, ax=None, show=None, **kwargs):
         """
         Plot the array geometry
-        
+
         Parameters:
         -----------
         coordinate_system : CoordinateSystem, optional
@@ -354,23 +368,23 @@ class ArrayGeometry:
             Whether to show the plot immediately
         **kwargs : dict
             Additional arguments passed to plotting functions
-            
+
         Returns:
         --------
         ax : matplotlib.axes.Axes
             The axes containing the plot
         """
         from beamforming.plotting import plot_array_geometry
-        
+
         if coordinate_system is None:
             coordinate_system = CoordinateSystem.CARTESIAN
-            
+
         # Get coordinates in the requested system
         coords = self.get_coordinates(coordinate_system)
-        
+
         # Pass to the plotting function
         return plot_array_geometry(
-            coords, 
+            coords,
             coordinate_system=coordinate_system,
             array_center=self.center,
             rotation_matrix=self.rotation_matrix,
