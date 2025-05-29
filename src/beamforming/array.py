@@ -536,6 +536,15 @@ class ArrayGeometry:
 
         return self.rotate(rot_matrix)
 
+    def steering_vector(self, frequency, direction, coordinate_system):
+        if frequency == 0:
+            return np.ones(self.n_sensors)
+
+        delays = self.delays(direction, coordinate_system)
+        phase_shifts = np.exp(-1j * 2 * np.pi * frequency * delays)
+        return phase_shifts
+
+
     def translate(self, vector):
         """
         Translate array by a vector
