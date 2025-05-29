@@ -232,39 +232,70 @@ class ArrayGeometry:
     #     """
     #     # Implementation here
 
-    def delays(self, direction, reference_point="center"):
+    def delays(self, direction, coordinate_system, reference_point="center"):
         """
         Calculate time delays for given direction
-
+        
         Parameters:
         -----------
         direction : ndarray or tuple
-            Direction vector or [azimuth, elevation] in radians
+            Direction specification according to coordinate_system:
+            - Cartesian: [x, y, z] vector (will be normalized)
+            - Polar: [azimuth] in radians
+            - Cylindrical: [r, azimuth, z] (r and z are ignored)
+            - Spherical: [azimuth, elevation] in radians
         reference_point : str or ndarray
             Reference point for delay calculation ('center', 'first', or coordinates)
-
+        coordinate_system : CoordinateSystem, optional
+            System of the provided direction. If None, inferred from input format:
+            - Length 1: Assumed Polar (azimuth only)
+            - Length 2: Assumed Spherical (azimuth, elevation)
+            - Length 3: Assumed Cartesian (x, y, z)
+            
         Returns:
         --------
         delays : ndarray
             Time delays for each sensor in seconds
         """
-        # Convert direction format if needed
-        if isinstance(direction, (list, tuple)) and len(direction) <= 3:
-            # Convert [azimuth, elevation] to unit vector
+        # Convert direction to ndarray
+        direction = np.asarray(direction).flatten()
+                
+        # Convert to unit vector in Cartesian coordinates
+        if coordinate_system == CoordinateSystem.CARTESIAN:
+            # Direction is already in Cartesian form, just normalize
+            direction_vector = direction / np.linalg.norm(direction)
+            if len(direction_vector) == 2:
+                # Convert 2D to 3D
+                direction_vector = np.append(direction_vector, 0)
+                
+        elif coordinate_system == CoordinateSystem.POLAR:
+            # Direction is just azimuth angle
+            azimuth = direction[0]
+            direction_vector = np.array([
+                np.cos(azimuth),
+                np.sin(azimuth),
+                0  # No elevation in polar coordinates
+            ])
+            
+        elif coordinate_system == CoordinateSystem.CYLINDRICAL:
+            # Direction is [r, azimuth, z], but we only care about azimuth
+            azimuth = direction[1] if len(direction) > 1 else direction[0]
+            direction_vector = np.array([
+                np.cos(azimuth),
+                np.sin(azimuth),
+                0  # Ignore z-component for direction
+            ])
+            
+        elif coordinate_system == CoordinateSystem.SPHERICAL:
+            # Direction is [azimuth, elevation]
             azimuth = direction[0]
             elevation = direction[1] if len(direction) > 1 else 0.0
-            direction_vector = np.array(
-                [
-                    np.cos(elevation) * np.cos(azimuth),
-                    np.cos(elevation) * np.sin(azimuth),
-                    np.sin(elevation),
-                ]
-            )
-        else:
-            direction_vector = np.asarray(direction)
-            # Normalize
-            direction_vector = direction_vector / np.linalg.norm(direction_vector)
-
+            direction_vector = np.array([
+                np.cos(elevation) * np.cos(azimuth),
+                np.cos(elevation) * np.sin(azimuth),
+                np.sin(elevation)
+            ])
+        
         # Determine reference point
         if reference_point == "center":
             ref_pos = self.center
@@ -272,16 +303,17 @@ class ArrayGeometry:
             ref_pos = self.sensor_positions[0]
         else:
             ref_pos = np.asarray(reference_point)
-
+            if len(ref_pos) == 2:
+                # Convert 2D to 3D reference point
+                ref_pos = np.append(ref_pos, 0)
+        
         # Calculate projection of sensor positions onto direction vector
         relative_positions = self.sensor_positions - ref_pos
         projections = np.dot(relative_positions, direction_vector)
-
+        
         # Convert to time delays
-        delays = (
-            -projections / self.sound_speed
-        )  # Negative because delay is in the opposite direction of arrival
-
+        delays = -projections / self.sound_speed  # Negative because delay is in the opposite direction of arrival
+        
         return delays
 
     def get_coordinates(self, coordinate_system=None):
