@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from enum import Enum
 
-from beamforming.core import CoordinateSystem
+from beamforming.coordinates import CoordinateSystem
 
 
 def plot_array_geometry(
